@@ -2,7 +2,7 @@
 
 const nodemailer = require('nodemailer');
 
-exports.createTransporter = function(config) {
+exports._createTransporter = function(config) {
   return function() {
     return nodemailer.createTransport(config);
   }

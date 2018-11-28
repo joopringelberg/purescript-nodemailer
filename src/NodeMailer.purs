@@ -1,7 +1,10 @@
 module NodeMailer
   ( NODEMAILER
   , AuthConfig
-  , TransportConfig
+  , ExtendableTransportConfig
+  , TransportConfig(..)
+  , HostTransportConfig
+  , ServiceTransportConfig
   , Message
   , Transporter
   , createTransporter
@@ -22,18 +25,25 @@ type AuthConfig =
   , pass :: String
   }
 
-type TransportConfig =
-  { host :: String
+type ExtendableTransportConfig f = { auth :: AuthConfig | f }
+
+type HostTransportConfig = ExtendableTransportConfig
+  ( host :: String
   , port :: Int
   , secure :: Boolean
-  , auth :: AuthConfig
-  }
+  )
 
-type Message =
+type ServiceTransportConfig = ExtendableTransportConfig
+  ( service :: String )
+
+data TransportConfig = HostConfig HostTransportConfig | ServiceConfig ServiceTransportConfig
+
+type Message f =
   { from :: String
   , to :: Array String
   , subject :: String
   , text :: String
+  | f
   }
 
 foreign import data Transporter :: Type
@@ -42,13 +52,15 @@ foreign import data NODEMAILER :: Effect
 
 
 
-sendMail :: forall e. Message -> Transporter -> Aff (nodemailer :: NODEMAILER | e) Unit
+sendMail :: forall e f. (Message f) -> Transporter -> Aff (nodemailer :: NODEMAILER | e) Unit
 sendMail message transporter = fromEffFnAff $ runFn2 _sendMail message transporter
 
+createTransporter :: forall e. TransportConfig -> Eff (nodemailer :: NODEMAILER | e) Transporter
+createTransporter (HostConfig c) = _createTransporter c
+createTransporter (ServiceConfig c) = _createTransporter c
+
+foreign import _createTransporter :: forall e f. (ExtendableTransportConfig f) -> Eff (nodemailer :: NODEMAILER | e)  Transporter
 
 
-foreign import createTransporter :: forall e. TransportConfig -> Eff (nodemailer :: NODEMAILER | e)  Transporter
 
-
-
-foreign import _sendMail :: forall e. Fn2 Message Transporter (EffFnAff (nodemailer :: NODEMAILER | e) Unit)
+foreign import _sendMail :: forall e f. Fn2 (Message f) Transporter (EffFnAff (nodemailer :: NODEMAILER | e) Unit)

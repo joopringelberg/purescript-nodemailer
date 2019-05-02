@@ -1,6 +1,5 @@
 module NodeMailer
-  ( NODEMAILER
-  , AuthConfig
+  ( AuthConfig
   , ExtendableTransportConfig
   , TransportConfig(..)
   , HostTransportConfig
@@ -50,7 +49,7 @@ type TestAccount =
   , smtp :: { host :: String, port :: Int, secure :: Boolean }
   }
 
-type Message f =
+type Message =
   { from :: String
   , to :: Array String
   , cc :: Array String
@@ -58,29 +57,28 @@ type Message f =
   , subject :: String
   , text :: String
   , attachments :: Array Attachment
-  | f
   }
 
 foreign import data Transporter :: Type
 
 foreign import data MessageInfo :: Type
 
-sendMail :: forall f. Message f -> Transporter -> Aff Unit
+sendMail :: Message -> Transporter -> Aff Unit
 sendMail message transporter = void $ sendMail_ message transporter
 
-createTransporter :: forall e. TransportConfig -> Eff (nodemailer :: NODEMAILER | e) Transporter
+createTransporter :: TransportConfig -> Effect Transporter
 createTransporter (HostConfig c) = _createTransporter c
 createTransporter (ServiceConfig c) = _createTransporter c
 
-foreign import _createTransporter :: forall e f. (ExtendableTransportConfig f) -> Eff (nodemailer :: NODEMAILER | e)  Transporter
+foreign import _createTransporter :: forall f. (ExtendableTransportConfig f) -> Effect  Transporter
 
-sendMail_ :: forall f. Message f -> Transporter -> Aff MessageInfo
+sendMail_ :: Message -> Transporter -> Aff MessageInfo
 sendMail_ message transporter = fromEffectFnAff $ runFn2 _sendMail (write message) transporter
 
 createTestAccount :: Aff TransportConfig
 createTestAccount = do
   account <- fromEffectFnAff _createTestAccount
-  pure
+  pure $ HostConfig
     { host: account.smtp.host
     , port: account.smtp.port
     , secure: account.smtp.secure
@@ -89,8 +87,6 @@ createTestAccount = do
 
 getTestMessageUrl :: MessageInfo -> Maybe String
 getTestMessageUrl = runFn3 _getTestMessageUrl Nothing Just
-
-foreign import createTransporter :: TransportConfig -> Effect Transporter
 
 foreign import _sendMail :: Fn2 Foreign Transporter (EffectFnAff MessageInfo)
 
